@@ -2,9 +2,7 @@ import urllib.request
 import re
 import html
 from datetime import datetime
-# import locale
 
-# locale.setlocale(locale.LC_ALL, "")
 AMOUNT_OF_TOPICS_TO_PARSE = 50
 AMOUNT_OF_DOCS_TO_PARSE = 50
 
@@ -30,18 +28,14 @@ class Document:
 def date_convert(s):
     if s.__contains__(','):
         '''Вынужденные меры, так как на сервере не хочет менять locale'''
-        s = s.replace('янв', 'jan')
-        s = s.replace('фев', 'feb')
-        s = s.replace('мар', 'mar')
-        s = s.replace('апр', 'apr')
-        s = s.replace('мая', 'may')
-        s = s.replace('июн', 'jun')
-        s = s.replace('июл', 'jul')
-        s = s.replace('авг', 'aug')
-        s = s.replace('сен', 'sep')
-        s = s.replace('окт', 'oct')
-        s = s.replace('ноя', 'nov')
-        s = s.replace('дек', 'dec')
+        months_rus = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
+                      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+
+        months_en = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+                     'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+        for i in range(len(months_rus)):
+            s = s.replace(months_rus[i], months_en[i])
 
         try:
             date = datetime.strptime(s, "%d %b, %H:%M")
@@ -56,74 +50,118 @@ def date_convert(s):
             hour=date.hour, minute=date.minute, second=0, microsecond=0)
 
 
+def get_blocks(html_ans, kind_of):  # topics or docs
+    if kind_of == 'topics':
+        reg_exp = r'<div class="item item_story js-story-item">(.*?)</div>'
+    else:  # docs
+        reg_exp = r'<div class="item item_story-single js-story-item">(.*?)</div>'
+
+    blocks = re.findall(reg_exp, html_ans, re.DOTALL)
+    return blocks
+
+
+def get_topic_link(block):
+    link = re.findall(
+        r'<a href="(.*)" class="item__link no-injects">',
+        block, re.DOTALL)[0]
+    return link
+
+
+def get_doc_link(block):
+    link = re.findall(
+        r'<a href="(.*)" class="item__link no-injects js-yandex-counter">',
+        block, re.DOTALL)[0]
+    return link
+
+
+def get_name(block):
+    name = re.findall(
+        r'<span class="item__title">(.*?)</span>',
+        block, re.DOTALL)[0]
+    return name
+
+
+def get_topic_description(block):
+    topic_description = re.findall(
+        r'<span class="item__text">(.*?)</span>',
+        block, re.DOTALL)[0].strip()
+    return topic_description
+
+
+def get_doc_time(block):
+    doc_time = re.findall(
+        r'<span class="item__info">(.*?)</span>',
+        block, re.DOTALL)[0]
+    return doc_time
+
+
+def get_paragraphs(html_ans):
+    paragraphs = re.findall(r'<p>(.*?)</p>', html_ans, re.DOTALL)
+    paragraphs = [
+        html.unescape(re.sub(r'(\<(/?[^>]+)>)', '', item)).strip()
+        for item in paragraphs]
+    paragraphs = [' '.join(item.split()) for item in paragraphs]
+    return paragraphs
+
+
+def get_tags(html_ans):
+    tags = re.findall(
+        r'class="article__tags__link">(.*?)</a>',
+        html_ans, re.DOTALL)
+    return tags
+
+
+def get_info(blocks, kind_of):  # docs or topics
+    output = []
+    for block in blocks:
+        name = get_name(block)
+
+        if kind_of == 'topics':
+            link = get_topic_link(block)
+            topic_description = get_topic_description(block)
+            topic = Topic(name, link, topic_description)
+            output.append(topic)
+            if len(output) >= AMOUNT_OF_TOPICS_TO_PARSE:
+                break
+        else:  # docs
+            link = get_doc_link(block)
+            doc_time = get_doc_time(block)
+            doc = Document(name, link, date_convert(doc_time))
+            output.append(doc)
+            if len(output) >= AMOUNT_OF_DOCS_TO_PARSE:
+                break
+
+    if kind_of == 'topics':
+        return output[:-1]  # так как "герои РБК"
+    else:
+        return output
+
+
 def parse_topics(url):
     response = urllib.request.urlopen(url)
     html_ans = response.read().decode('utf-8')
-    blocks_topics = re.findall(
-        r'<div class="item item_story js-story-item">(.*?)</div>',
-        html_ans, re.DOTALL)
-
-    topics = []
-    for b in blocks_topics:
-        topic_link = re.findall(
-            r'<a href="(.*)" class="item__link no-injects">',
-            b, re.DOTALL)[0]
-        topic_name = re.findall(
-            r'<span class="item__title">(.*?)</span>',
-            b, re.DOTALL)[0]
-        topic_description = re.findall(
-            r'<span class="item__text">(.*?)</span>',
-            b, re.DOTALL)[0].strip()
-        topic = Topic(topic_name, topic_link, topic_description)
-        topics.append(topic)
-        if len(topics) >= AMOUNT_OF_TOPICS_TO_PARSE:
-            break
-
-    return topics[:-1]  # так как "герои РБК"
+    blocks_topics = get_blocks(html_ans, 'topics')
+    return get_info(blocks_topics, 'topics')
 
 
 def parse_docs(topics):
-    for t in topics:
-        response = urllib.request.urlopen(t.link)
+    for tpc in topics:
+        response = urllib.request.urlopen(tpc.link)
         html_ans = response.read().decode('utf-8')
-        blocks_docs = re.findall(
-            r'<div class="item item_story-single js-story-item">(.*?)</div>',
-            html_ans, re.DOTALL)
+        blocks_docs = get_blocks(html_ans, 'docs')
+        docs = get_info(blocks_docs, 'docs')
 
-        docs = []
-        for b in blocks_docs:
-            doc_link = re.findall(
-                r'<a href="(.*)" class="item__link no-injects js-yandex-counter">',
-                b, re.DOTALL)[0]
-            doc_name = re.findall(
-                r'<span class="item__title">(.*?)</span>',
-                b, re.DOTALL)[0]
-            doc_time = re.findall(
-                r'<span class="item__info">(.*?)</span>',
-                b, re.DOTALL)[0]
-            doc = Document(doc_name, doc_link, date_convert(doc_time))
-            docs.append(doc)
-            if len(docs) >= AMOUNT_OF_DOCS_TO_PARSE:
-                break
-
-        for d in docs:
-            doc_link = d.link
-            response = urllib.request.urlopen(doc_link)
+        for doc in docs:
+            response = urllib.request.urlopen(doc.link)
             html_ans = response.read().decode('utf-8')
 
-            paragraphs = re.findall(r'<p>(.*?)</p>', html_ans, re.DOTALL)
-            paragraphs = [
-                html.unescape(re.sub(r'(\<(/?[^>]+)>)', '', item)).strip()
-                for item in paragraphs]
+            paragraphs = get_paragraphs(html_ans)
+            tags = get_tags(html_ans)
+            doc.paragraphs = paragraphs
+            doc.tags = tags
 
-            tags = re.findall(
-                r'class="article__tags__link">(.*?)</a>',
-                html_ans, re.DOTALL)
-            d.paragraphs = paragraphs
-            d.tags = tags
-
-        t.docs = docs
-        t.time = t.docs[0].time
+        tpc.docs = docs
+        tpc.time = tpc.docs[0].time
 
     return topics
 
@@ -131,11 +169,8 @@ def parse_docs(topics):
 def parse_one_doc_to_set_topic_time(topic):
     response = urllib.request.urlopen(topic.link)
     html_ans = response.read().decode('utf-8')
-    blocks_docs = re.findall(
-        r'<div class="item item_story-single js-story-item">(.*?)</div>',
-        html_ans, re.DOTALL)
-    b = blocks_docs[0]
-    doc_time = re.findall(
-        r'<span class="item__info">(.*?)</span>',
-        b, re.DOTALL)[0]
+
+    blocks_docs = get_blocks(html_ans, 'docs')
+    block = blocks_docs[0]
+    doc_time = get_doc_time(block)
     topic.time = date_convert(doc_time)
