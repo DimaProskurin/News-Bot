@@ -17,28 +17,51 @@ NUMBER_NEWEST_DOCS = 5
 SIGMA_KOF = 3
 LOW_KOW = 0.05
 UP_KOF = 2
+UP_BOARD_FOR_OUTPUT = 50
 
 
 def start(bot, update):
-    """Send a message when the command /start is issued."""
+    """
+    Отправляет приветствие
+    :param bot:
+    :param update:
+    :return: void
+    """
     update.message.reply_text('Hi!')
 
 
 def help(bot, update):
-    """Send a message when the command /help is issued."""
+    """
+    Отправляет то, что умеет бот по команде /help
+    :param bot:
+    :param update:
+    :return: void
+    """
     text = '''
-    new_docs <N> - показать N самых свежих новостей
-new_topics <N> - показать N самых свежих тем
-topic <topic_name> - показать описание темы и заголовки 5 самых свежих новостей в этой теме
-doc <doc_title> - показать текст документа с заданным заголовком
-words <topic_name> - показать 5 слов, лучше всего характеризующих тему
-describe_doc <doc_title> - вывести статистику по документу
-describe_topic <topic_name> - вывести статистику по теме
+    new_docs <число N> - показать N самых свежих новостей
+    
+new_topics <число N> - показать N самых свежих тем
+
+topic <название темы> - показать описание темы и заголовки 5 самых свежих новостей в этой теме
+
+doc <название документа> - показать текст документа с заданным названием
+
+words <название темы> - показать 5 слов, лучше всего характеризующих тему
+
+describe_doc <название документа> - вывести статистику по документу
+
+describe_topic <название темы> - вывести статистику по теме
 '''
     update.message.reply_text(text)
 
 
 def update_news(bot, job):
+    """
+    Обновление новостей в БД
+    :param bot:
+    :param job:
+    :return: void
+    """
     topics = Parse.parse_topics(URL)
     for t in topics:
         Parse.parse_one_doc_to_set_topic_time(t)
@@ -48,42 +71,92 @@ def update_news(bot, job):
 
 
 def new_docs(bot, update, args):
-    """show n newest docs"""
-    amount = int(args[0])
-    res = DB.select_newest_docs(amount)
-    for d in res:
-        update.message.reply_text(str(d.time) + ' ' + d.name + '\n' + d.link)
+    """
+    Отправляет новейшие документы
+    :param bot:
+    :param update:
+    :param args: количество документов
+    :return: void
+    """
+    try:
+        amount = int(args[0])
+        if amount < 0 or amount > UP_BOARD_FOR_OUTPUT:
+            raise ValueError
+
+        res = DB.select_newest_docs(amount)
+        for d in res:
+            update.message.reply_text(str(d.time) + ' ' + d.name + '\n' + d.link)
+    except ValueError:
+        update.message.reply_text("Неправильный аргумент")
 
 
 def new_topics(bot, update, args):
-    """show n newest topics"""
-    amount = int(args[0])
-    res = DB.select_newest_topics(amount)
-    for t in res:
-        update.message.reply_text(str(t.time) + ' ' + t.name + '\n' + t.link)
+    """
+    Отправляет новейшие темы
+    :param bot:
+    :param update:
+    :param args: количество тем
+    :return: void
+    """
+    try:
+        amount = int(args[0])
+        if amount < 0 or amount > UP_BOARD_FOR_OUTPUT:
+            raise ValueError
+
+        res = DB.select_newest_topics(amount)
+        for t in res:
+            update.message.reply_text(str(t.time) + ' ' + t.name + '\n' + t.link)
+    except ValueError:
+        update.message.reply_text("Неправильный аргумент")
 
 
 def topic(bot, update, args):
-    """show descrp of topic and NUMBER_NEWEST_DOCS newest docs of topic"""
+    """
+    Отправляет описание темы и несколько новейших документов из неё
+    :param bot:
+    :param update:
+    :param args: название темы
+    :return: void
+    """
     topic_name = ' '.join(args)
     tpc = DB.select_topic(topic_name)
-    text = [tpc.description + '\n']
-    i = 0
-    while i < NUMBER_NEWEST_DOCS and i < len(tpc.documents):
-        text.append(tpc.documents[i].name + '\n'
-                    + tpc.documents[i].link + '\n')
-        i += 1
-    update.message.reply_text('\n'.join(text))
+    if tpc is not None:
+        text = [tpc.description + '\n']
+        i = 0
+        while i < NUMBER_NEWEST_DOCS and i < len(tpc.documents):
+            text.append(tpc.documents[i].name + '\n'
+                        + tpc.documents[i].link + '\n')
+            i += 1
+        update.message.reply_text('\n'.join(text))
+    else:
+        update.message.reply_text("Нет такой темы")
 
 
 def doc(bot, update, args):
-    """show text of doc"""
+    """
+    Отправляет текст документа
+    :param bot:
+    :param update:
+    :param args: название документа
+    :return: void
+    """
     doc_name = ' '.join(args)
     dc = DB.select_doc(doc_name)
-    update.message.reply_text(dc.paragraphs)
+    if dc is not None:
+        update.message.reply_text(dc.paragraphs)
+    else:
+        update.message.reply_text("Нет такого документа")
 
 
 def send_photo_to_chat(update, bot, name, kind_of_pic):
+    """
+    Отправляет фото в чат и затем удаляет его из системы
+    :param update:
+    :param bot:
+    :param name: название фото
+    :param kind_of_pic: 'freq' or 'len' добавка к названию
+    :return: void
+    """
     filename = str(kind_of_pic) + '_pic' + str(name) + '.png'
     bot.send_photo(chat_id=update.message.chat.id, photo=open(filename, 'rb'))
     path = os.path.join(os.path.abspath(os.path.dirname(__file__)), filename)
@@ -91,6 +164,16 @@ def send_photo_to_chat(update, bot, name, kind_of_pic):
 
 
 def create_and_show_graphics(update, bot, name, data_dict, kind_of_graphic):
+    """
+    Создаёт и отправляет графики в чат
+    :param update:
+    :param bot:
+    :param name: название графиков
+    :param data_dict: данные для графиков в виде словаря
+    :param kind_of_graphic: 'freq' or 'len' вид данных по которым
+    будет строиться график
+    :return: void
+    """
     mean = statistics.mean(data_dict.values())
     sigma = statistics.stdev(data_dict.values())
 
@@ -123,65 +206,96 @@ def create_and_show_graphics(update, bot, name, data_dict, kind_of_graphic):
 
 
 def describe_doc(bot, update, args):
-    """show doc's statistics"""
+    """
+    Отправляет статистику по документу
+    :param bot:
+    :param update:
+    :param args: название документа
+    :return: void
+    """
     doc_name = ' '.join(args)
     dc = DB.select_doc(doc_name)
-    len_stat = json.loads(dc.len_word_frequency)
-    freq_stat = json.loads(dc.freq_word_frequency)
+    if dc is not None:
+        len_stat = json.loads(dc.len_word_frequency)
+        freq_stat = json.loads(dc.freq_word_frequency)
 
-    create_and_show_graphics(update, bot, doc_name, len_stat, 'len')
-    create_and_show_graphics(update, bot, doc_name, freq_stat, 'freq')
+        create_and_show_graphics(update, bot, doc_name, len_stat, 'len')
+        create_and_show_graphics(update, bot, doc_name, freq_stat, 'freq')
+    else:
+        update.message.reply_text("Нет такого документа")
 
 
 def describe_topic(bot, update, args):
-    """show topic's statistics"""
+    """
+    Отправляет статистику по теме
+    :param bot:
+    :param update:
+    :param args: название темы
+    :return: void
+    """
     topic_name = ' '.join(args)
     tc = DB.select_topic(topic_name)
-    text = ['Количество документов в теме: ' + str(len(tc.documents))]
+    if tc is not None:
+        text = ['Количество документов в теме: ' + str(len(tc.documents))]
 
-    avg_len_doc = 0
-    for dc in tc.documents:
-        avg_len_doc += len(dc.paragraphs)
-    avg_len_doc /= len(tc.documents)
-    text.append('Средняя длина документа: ' + str(avg_len_doc))
-    update.message.reply_text('\n'.join(text))
+        avg_len_doc = 0
+        for dc in tc.documents:
+            avg_len_doc += len(dc.paragraphs)
+        avg_len_doc /= len(tc.documents)
+        text.append('Средняя длина документа: ' + str(avg_len_doc))
+        update.message.reply_text('\n'.join(text))
 
-    len_stat = json.loads(tc.len_word_frequency)
-    freq_stat = json.loads(tc.freq_word_frequency)
+        len_stat = json.loads(tc.len_word_frequency)
+        freq_stat = json.loads(tc.freq_word_frequency)
 
-    create_and_show_graphics(update, bot, topic_name, len_stat, 'len')
-    create_and_show_graphics(update, bot, topic_name, freq_stat, 'freq')
+        create_and_show_graphics(update, bot, topic_name, len_stat, 'len')
+        create_and_show_graphics(update, bot, topic_name, freq_stat, 'freq')
+    else:
+        update.message.reply_text("Нет такой темы")
 
 
 def words(bot, update, args):
-    """show NUMBER_CHARACTERISTIC_WORDS most relevant words for topic"""
+    """
+    Выводит несколько релевантных слов по теме
+    :param bot:
+    :param update:
+    :param args: название темы
+    :return: void
+    """
     topic_name = ' '.join(args)
     tpc = DB.select_topic(topic_name)
+    if tpc is not None:
+        lst_of_tags = []
+        for dc in tpc.documents:
+            lst_of_tags += [tag.name for tag in dc.tags]
+        tpc_tags = Counter(lst_of_tags)
+        sorted_tags = sorted(tpc_tags, key=lambda x: tpc_tags[x], reverse=True)
 
-    lst_of_tags = []
-    for dc in tpc.documents:
-        lst_of_tags += [tag.name for tag in dc.tags]
-    tpc_tags = Counter(lst_of_tags)
-    sorted_tags = sorted(tpc_tags, key=lambda x: tpc_tags[x], reverse=True)
+        text = []
+        i = 0
+        while i < NUMBER_CHARACTERISTIC_WORDS and i < len(sorted_tags):
+            text.append(sorted_tags[i])
+            i += 1
 
-    text = []
-    i = 0
-    while i < NUMBER_CHARACTERISTIC_WORDS and i < len(sorted_tags):
-        text.append(sorted_tags[i])
-        i += 1
-
-    update.message.reply_text('\n'.join(text))
+        update.message.reply_text('\n'.join(text))
+    else:
+        update.message.reply_text("Нет такой темы")
 
 
 def add_handler(dispatcher, handler_name, handler_func):
+    """
+    Устанавливает хэндлеры для команд
+    :param dispatcher:
+    :param handler_name: название команды
+    :param handler_func: функция её исполняющую
+    :return: void
+    """
     dispatcher.add_handler(CommandHandler(handler_name,
                                           handler_func,
                                           pass_args=True))
 
 
 def main():
-    """Start the bot."""
-    # Create the EventHandler and pass it your bot's token.
     updater = Updater(TOKEN)
 
     if not updater.job_queue.get_jobs_by_name('update_news'):
@@ -189,10 +303,8 @@ def main():
                                          interval=INTERVAL,
                                          first=0)
 
-    # Get the dispatcher to register handlers
     dp = updater.dispatcher
 
-    # on different commands - answer in Telegram
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(CommandHandler("help", help))
 
@@ -204,10 +316,9 @@ def main():
     for i in range(len(handler_names)):
         add_handler(dp, handler_names[i], handler_funcs[i])
 
-    # Start the Bot
     updater.start_polling()
-
     updater.idle()
 
 
-main()
+if __name__ == '__main__':
+    main()

@@ -26,6 +26,11 @@ class Document:
 
 
 def date_convert(s):
+    """
+    конвертирует строку в удобный объект datetime
+    :param s: строка с датой и временем
+    :return: объект datetime
+    """
     if s.__contains__(','):
         '''Вынужденные меры, так как на сервере не хочет менять locale'''
         months_rus = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
@@ -51,6 +56,12 @@ def date_convert(s):
 
 
 def get_blocks(html_ans, kind_of):  # topics or docs
+    """
+    По html разметке вычленяет блоки с нужной информацей
+    :param html_ans: html разметка
+    :param kind_of: 'topics' or 'docs' для выбора того, что искать
+    :return: массив html тегов с их содержимым
+    """
     if kind_of == 'topics':
         reg_exp = r'<div class="item item_story js-story-item">(.*?)</div>'
     else:  # docs
@@ -61,6 +72,11 @@ def get_blocks(html_ans, kind_of):  # topics or docs
 
 
 def get_topic_link(block):
+    """
+    Получить ссылку на тему из html блока
+    :param block: html блок
+    :return: строка с ссылкой
+    """
     link = re.findall(
         r'<a href="(.*)" class="item__link no-injects">',
         block, re.DOTALL)[0]
@@ -68,6 +84,11 @@ def get_topic_link(block):
 
 
 def get_doc_link(block):
+    """
+    Получить ссылку на документ из html блока
+    :param block: html блок
+    :return: строка с ссылкой
+    """
     link = re.findall(
         r'<a href="(.*)" class="item__link no-injects js-yandex-counter">',
         block, re.DOTALL)[0]
@@ -75,6 +96,11 @@ def get_doc_link(block):
 
 
 def get_name(block):
+    """
+    Получить название объекта по html блоку
+    :param block: html блок
+    :return: строка с названием
+    """
     name = re.findall(
         r'<span class="item__title">(.*?)</span>',
         block, re.DOTALL)[0]
@@ -82,6 +108,11 @@ def get_name(block):
 
 
 def get_topic_description(block):
+    """
+    Получить описание темы по html блоку
+    :param block: html блок
+    :return: строка с описанием
+    """
     topic_description = re.findall(
         r'<span class="item__text">(.*?)</span>',
         block, re.DOTALL)[0].strip()
@@ -89,6 +120,11 @@ def get_topic_description(block):
 
 
 def get_doc_time(block):
+    """
+    Получить время документа по html блоку
+    :param block: html блок
+    :return: строка со временем
+    """
     doc_time = re.findall(
         r'<span class="item__info">(.*?)</span>',
         block, re.DOTALL)[0]
@@ -96,6 +132,11 @@ def get_doc_time(block):
 
 
 def get_paragraphs(html_ans):
+    """
+    Получить массив абзацев по html
+    :param html_ans: html текст
+    :return: массив строк с абзацами
+    """
     paragraphs = re.findall(r'<p>(.*?)</p>', html_ans, re.DOTALL)
     paragraphs = [
         html.unescape(re.sub(r'(\<(/?[^>]+)>)', '', item)).strip()
@@ -105,6 +146,11 @@ def get_paragraphs(html_ans):
 
 
 def get_tags(html_ans):
+    """
+    Получить строку с тегами по html
+    :param html_ans: html текст
+    :return: строка с тегами
+    """
     tags = re.findall(
         r'class="article__tags__link">(.*?)</a>',
         html_ans, re.DOTALL)
@@ -112,6 +158,12 @@ def get_tags(html_ans):
 
 
 def get_info(blocks, kind_of):  # docs or topics
+    """
+    Получить всю информацию об объекте по html блокам
+    :param blocks: блоки с html разметкой
+    :param kind_of: 'topics' or 'docs' тип объекта
+    :return: массив инициализированных объектов
+    """
     output = []
     for block in blocks:
         name = get_name(block)
@@ -138,6 +190,11 @@ def get_info(blocks, kind_of):  # docs or topics
 
 
 def parse_topics(url):
+    """
+    Парсит страницу для получения тем
+    :param url: url страницы, которую парсим
+    :return: массив объектов типа Topic
+    """
     response = urllib.request.urlopen(url)
     html_ans = response.read().decode('utf-8')
     blocks_topics = get_blocks(html_ans, 'topics')
@@ -145,6 +202,11 @@ def parse_topics(url):
 
 
 def parse_docs(topics):
+    """
+    Парсит страницы тем для получения информации о документах
+    :param topics: массив тем
+    :return: массив тем с заполненной документой базой
+    """
     for tpc in topics:
         response = urllib.request.urlopen(tpc.link)
         html_ans = response.read().decode('utf-8')
@@ -167,6 +229,11 @@ def parse_docs(topics):
 
 
 def parse_one_doc_to_set_topic_time(topic):
+    """
+    Парсит один документ темы для установления времени онной
+    :param topic: тема
+    :return: void
+    """
     response = urllib.request.urlopen(topic.link)
     html_ans = response.read().decode('utf-8')
 
