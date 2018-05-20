@@ -19,6 +19,8 @@ SIGMA_KOF = 3
 LOW_KOW = 0.05
 UP_KOF = 2
 UP_BOARD_FOR_OUTPUT = 50
+NEW_DOCS_DEFAULT = 3
+NEW_TOPICS_DEFAULT = 3
 
 
 def start(bot, update):
@@ -79,8 +81,12 @@ def new_docs(bot, update, args):
     :param args: количество документов
     :return: void
     """
+
     try:
-        amount = int(args[0])
+        try:
+            amount = int(args[0])
+        except IndexError:
+            amount = NEW_DOCS_DEFAULT
         if amount < 0 or amount > UP_BOARD_FOR_OUTPUT:
             raise ValueError
 
@@ -100,7 +106,10 @@ def new_topics(bot, update, args):
     :return: void
     """
     try:
-        amount = int(args[0])
+        try:
+            amount = int(args[0])
+        except IndexError:
+            amount = NEW_TOPICS_DEFAULT
         if amount < 0 or amount > UP_BOARD_FOR_OUTPUT:
             raise ValueError
 
