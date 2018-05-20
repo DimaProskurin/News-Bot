@@ -1,6 +1,7 @@
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from telegram.ext import Updater, CommandHandler
 import Parse
 import DB
@@ -200,6 +201,8 @@ def create_and_show_graphics(update, bot, name, data_dict, kind_of_graphic):
         plt.title('Распределение частот слов')
         ax.set_xlabel('Повторившееся x раз слова')
 
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
     plt.savefig(str(kind_of_graphic) + '_pic' + str(name) + '.png')
     plt.close()
     send_photo_to_chat(update, bot, name, str(kind_of_graphic))
@@ -254,6 +257,20 @@ def describe_topic(bot, update, args):
         update.message.reply_text("Нет такой темы")
 
 
+def check_for_added_data(prepared_lst, new_s):
+    """
+    Проверить, есть ли в готовых тегах уже такой же
+    или очень похожий
+    :param prepared_lst: список готовых тегов
+    :param new_s: новый тег
+    :return: bool
+    """
+    for s in prepared_lst:
+        if new_s.lower() in s.lower() or s.lower() in new_s.lower():
+            return True
+    return False
+
+
 def words(bot, update, args):
     """
     Выводит несколько релевантных слов по теме
@@ -273,8 +290,9 @@ def words(bot, update, args):
 
         text = []
         i = 0
-        while i < NUMBER_CHARACTERISTIC_WORDS and i < len(sorted_tags):
-            text.append(sorted_tags[i])
+        while len(text) < NUMBER_CHARACTERISTIC_WORDS and i < len(sorted_tags):
+            if not check_for_added_data(text, sorted_tags[i]):
+                text.append(sorted_tags[i])
             i += 1
 
         update.message.reply_text('\n'.join(text))

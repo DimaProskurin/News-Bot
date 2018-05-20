@@ -5,6 +5,10 @@ from datetime import datetime
 
 AMOUNT_OF_TOPICS_TO_PARSE = 50
 AMOUNT_OF_DOCS_TO_PARSE = 50
+MONTHS_RUS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
+              'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
+MONTHS_EN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+             'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 
 class Topic:
@@ -33,20 +37,14 @@ def date_convert(s):
     """
     if s.__contains__(','):
         '''Вынужденные меры, так как на сервере не хочет менять locale'''
-        months_rus = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн',
-                      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
-
-        months_en = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
-                     'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-
-        for i in range(len(months_rus)):
-            s = s.replace(months_rus[i], months_en[i])
+        for i in range(len(MONTHS_RUS)):
+            s = s.replace(MONTHS_RUS[i], MONTHS_EN[i])
 
         try:
             date = datetime.strptime(s, "%d %b, %H:%M")
-            return date.replace(year=2018)
+            return date.replace(year=datetime.now().year)
         except ValueError:
-            # значит, не 2018 года
+            # значит, не текущего года
             return datetime.strptime(s, "%d %b %Y, %H:%M")
     else:
         # если дата сегодняшняя, то есть только время
