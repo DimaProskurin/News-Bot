@@ -10,7 +10,7 @@ from collections import Counter
 import os
 import statistics
 
-TOKEN = "579989274:AAEzwSK5zi_HASYfDrzDn1rV3RCfa8OEbYg"
+TOKEN = "<token>"
 URL = 'https://www.rbc.ru/story/'
 INTERVAL = 3600  # in seconds => every 60 min
 NUMBER_CHARACTERISTIC_WORDS = 5
